@@ -50,7 +50,7 @@ let state = {current:-1}, people = {}, answers = {}, started = false;
 
 function loginView(msg){
   bar.hidden = true;
-  stage.innerHTML = `<h1>Presenter sign-in</h1><p class="mut">${esc(msg||'Use the presenter account you created in Firebase.')}</p>
+  stage.innerHTML = `<h1>Presenter sign-in</h1><p class="mut">${esc(msg || 'Use the presenter account you created')} <i>${esc('FOR SAFETY!')}</i></p>
   <input id="e" type="email" placeholder="Email" autocomplete="username"><br>
   <input id="p" type="password" placeholder="Password" autocomplete="current-password"><br>
   <button class="p" id="in">Sign in</button>`;
@@ -94,7 +94,7 @@ function draw(){
     stage.innerHTML = `<h1>Thank you!</h1><p class="mut">${joined} people joined.</p>`;
   } else {
     const q = Q[c], t = tally(c), max = Math.max(1, ...t.counts), rev = !!state.revealed && q.correct !== undefined;
-    stage.innerHTML = `<p class="mut">Question ${c+1} of ${Q.length}${q.multi?' · select all that apply':''}</p><h1>${esc(q.text)}</h1>` +
+    stage.innerHTML = `<p class="mut">Question ${c+1} of ${Q.length}</p><h1>${esc(q.text)}</h1>` +
       q.options.map((o,i) => `<div class="row${rev ? (i===q.correct ? ' ok' : ' dim') : ''}"><div class="l">${rev && i===q.correct ? '✓' : 'ABCDEFGH'[i]}</div>
         <div class="bar"><i style="width:${t.counts[i]/max*100}%"></i><span>${esc(o)}</span></div>
         <div class="num">${t.counts[i]}<small>${t.n ? Math.round(t.counts[i]/t.n*100) : 0}%</small></div></div>`).join('') +
