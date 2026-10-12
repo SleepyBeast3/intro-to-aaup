@@ -46,7 +46,7 @@ let state = {current:-1}, people = {}, answers = {}, started = false;
 
 function loginView(msg){
   bar.hidden = true;
-  stage.innerHTML = `<h1>Presenter sign-in</h1><p class="mut">${esc(msg||'Use the presenter account you created in Firebase.')}</p>
+  stage.innerHTML = `<h1>Presenter sign-in</h1><p class="mut">${esc(msg || 'Use the presenter account you created')} <i>${esc('FOR SAFETY!')}</i></p>`
   <input id="e" type="email" placeholder="Email" autocomplete="username"><br>
   <input id="p" type="password" placeholder="Password" autocomplete="current-password"><br>
   <button class="p" id="in">Sign in</button>`;
