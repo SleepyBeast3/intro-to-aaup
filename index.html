@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Join the session</title>
+<style>
+:root{--bg:#f6f7f4;--ink:#1c2733;--mut:#5d6b78;--acc:#0f6b6b;--line:#cfd6d6;--card:#fff}
+@media(prefers-color-scheme:dark){:root{--bg:#151c22;--ink:#eef2f3;--mut:#9fb0ba;--acc:#4fc3c3;--line:#33424d;--card:#1d2830}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.4 "Segoe UI",system-ui,sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+main{max-width:520px;margin:0 auto;padding:24px 18px}
+h1{font-size:1.5rem;line-height:1.2;margin:0 0 6px}
+p{color:var(--mut);margin:0 0 18px}
+label{display:block;font-weight:600;margin:14px 0 6px}
+input{width:100%;font:inherit;padding:13px;border:2px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
+input:focus,button:focus-visible{outline:3px solid var(--acc);outline-offset:1px}
+.opt,.go{display:flex;gap:12px;width:100%;text-align:left;font:inherit;color:var(--ink);padding:14px;margin:0 0 10px;border:2px solid var(--line);border-radius:10px;background:var(--card);cursor:pointer}
+.opt b{flex:none;width:28px;height:28px;border-radius:50%;background:var(--line);display:grid;place-items:center;font-size:.9rem}
+.opt.on{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 14%,var(--card))}
+.opt.on b{background:var(--acc);color:#fff}
+.go{justify-content:center;background:var(--acc);border-color:var(--acc);color:#fff;font-weight:700;margin-top:16px}
+.go:disabled{opacity:.4;cursor:default}
+.skip{background:none;border:0;color:var(--mut);text-decoration:underline;font:inherit;padding:10px 0;cursor:pointer}
+.err{color:#b3261e;font-weight:600;min-height:1.4em}
+.prog{font-size:.9rem;color:var(--mut);margin-bottom:8px}
+</style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="questions.js"></script>
+</head><body><main id="app"></main>
+<script>
+firebase.initializeApp(FIREBASE_CONFIG);
+const db = firebase.database(), Q = QUESTIONS, app = document.getElementById('app');
+const ls = {get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},
+            set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}},
+            del:k=>{try{localStorage.removeItem(k)}catch(e){}}};
+const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let state = null, pid = ls.get('fact_pid'), picked = new Set(), lastKey = null;
+const doneList = () => { try { return JSON.parse(ls.get('fact_done')||'[]') } catch(e){ return [] } };
+
+function view(html){ app.innerHTML = html; }
+function msg(h, p){ view(`<h1>${esc(h)}</h1><p>${esc(p)}</p>`); }
+
+function joinView(){
+  view(`<h1>${esc(EVENT_TITLE)}</h1><p>Tell us who you are, then answer along as the questions appear.</p>
+  <label for="fn">First name</label><input id="fn" autocomplete="given-name" maxlength="60">
+  <label for="em">College email address</label><input id="em" type="email" autocomplete="email" maxlength="120" inputmode="email">
+  <div class="err" id="err"></div>
+  <button class="go" id="join">Join</button>`);
+  document.getElementById('join').onclick = async () => {
+    const name = document.getElementById('fn').value.trim(), email = document.getElementById('em').value.trim();
+    const err = document.getElementById('err');
+    if(!name){ err.textContent = 'Enter your first name.'; return; }
+    if(!/^\S+@\S+\.\S+$/.test(email)){ err.textContent = 'Enter a valid email address.'; return; }
+    try{
+      const id = db.ref('people').push().key;
+      await db.ref('people/'+id).set({name, email, joined: Date.now()});
+      pid = id; ls.set('fact_pid', id); ls.set('fact_name', name); lastKey = null; render();
+    }catch(e){ err.textContent = 'Could not join. Check your connection and try again.'; }
+  };
+}
+
+function questionView(c){
+  const q = Q[c];
+  view(`<div class="prog">Question ${c+1} of ${Q.length}</div><h1>${esc(q.text)}</h1>
+  <p>${q.multi ? 'Select all that apply.' : 'Choose one.'}</p>
+  ${q.options.map((o,i)=>`<button class="opt" data-i="${i}" aria-pressed="false"><b>${'ABCDEFGH'[i]}</b><span>${esc(o)}</span></button>`).join('')}
+  <div class="err" id="err"></div>
+  <button class="go" id="send" disabled>Submit answer</button>
+  ${q.multi ? '<button class="skip" id="skip">Not right now</button>' : ''}`);
+  const send = document.getElementById('send');
+  app.querySelectorAll('.opt').forEach(b => b.onclick = () => {
+    const i = +b.dataset.i;
+    if(q.multi){ picked.has(i) ? picked.delete(i) : picked.add(i); }
+    else { picked = new Set([i]); }
+    app.querySelectorAll('.opt').forEach(x => {
+      const on = picked.has(+x.dataset.i); x.classList.toggle('on', on); x.setAttribute('aria-pressed', on);
+    });
+    send.disabled = picked.size === 0;
+  });
+  const finish = () => { ls.set('fact_done', JSON.stringify([...doneList(), c])); lastKey = null; render(); };
+  send.onclick = async () => {
+    send.disabled = true;
+    try{
+      await db.ref(`answers/${c}/${pid}`).set(q.multi ? [...picked].sort((a,b)=>a-b) : [...picked][0]);
+      finish();
+    }catch(e){ document.getElementById('err').textContent = 'Not sent. Check your connection and tap Submit again.'; send.disabled = false; }
+  };
+  if(q.multi) document.getElementById('skip').onclick = finish;
+}
+
+function render(){
+  const c = state ? state.current : -1;
+  const key = [pid, c, doneList().includes(c)].join('|');
+  if(key === lastKey) return;      // don't wipe a selection in progress
+  lastKey = key; picked = new Set();
+  if(!pid) return joinView();
+  if(c < 0) return msg('You\'re in, ' + (ls.get('fact_name')||'') + '.', 'Waiting for the first question.');
+  if(c >= Q.length) return msg('Thank you!', 'That\'s everything. We\'ll follow up with anyone who shared interest in a committee.');
+  if(doneList().includes(c)) return msg('Answer received.', 'Waiting for the next question.');
+  questionView(c);
+}
+
+db.ref('state').on('value', s => {
+  state = s.val() || {current:-1, eventId:''};
+  if((ls.get('fact_event')||'') !== (state.eventId||'')){   // presenter reset the event
+    ls.del('fact_pid'); ls.del('fact_done'); ls.del('fact_name'); pid = null; lastKey = null;
+    ls.set('fact_event', state.eventId||'');
+  }
+  render();
+});
+msg('Connecting…','');
+</script></body></html>
