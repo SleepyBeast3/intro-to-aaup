@@ -23,7 +23,7 @@ window.QUESTIONS = [
   { text: "Question 7?", options: ["Bicycle", "Canoe", "Train", "Hot air balloon"] },
   { text: "Question 8?", options: ["Soccer", "Chess", "Curling", "Archery"] },
   { text: "Question 9?", options: ["Snow", "Fog", "Thunder", "Rainbow"] },
-  { text: "I'm interested serving on or helping with FACT for these topics:", multi: true, options: [
+  { text: "I'm interested serving on or helping with FACT for these topics (select all that apply):", multi: true, options: [
     "Examining Program Chair Work",
     "Reviewing Dental Benefits",
     "Improving College-wide Training on College Tools, Processes, and Systems",
