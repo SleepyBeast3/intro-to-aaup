@@ -80,7 +80,7 @@ function draw(){
   const c = state.current, joined = Object.keys(people).length;
   bar.hidden = false;
   if(c < 0){
-    const url = new URL('index.html', location.href).href;
+    const url = new URL('https://sleepybeast3.github.io/intro-to-aaup/index.html';
     stage.innerHTML = `<h1>${esc(EVENT_TITLE)}</h1><div class="lobby"><div id="qr"></div>
       <div><p>Scan to join, or go to</p><p class="url">${esc(url)}</p>
       <p class="mut">Joined so far</p><div class="count">${joined}</div></div></div>`;
