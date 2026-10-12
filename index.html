@@ -76,7 +76,7 @@ function questionView(c){
     });
     send.disabled = picked.size === 0;
   });
-  const finish = () => { ls.set('fact_done', JSON.stringify([...doneList(), c])); lastKey = null; render(); };
+  const finish = () => { ls.set('fact_pick_'+c, JSON.stringify([...picked])); ls.set('fact_done', JSON.stringify([...doneList(), c])); lastKey = null; render(); };
   send.onclick = async () => {
     send.disabled = true;
     try{
@@ -87,14 +87,23 @@ function questionView(c){
   if(q.multi) document.getElementById('skip').onclick = finish;
 }
 
+function revealView(c){
+  const q = Q[c], i = q.correct;
+  let pick = null; try { pick = JSON.parse(ls.get('fact_pick_'+c)); } catch(e){}
+  const res = pick && pick.length ? `<p><strong>${pick[0]===i ? 'You got it!' : 'Not this time.'}</strong></p>` : '';
+  view(`<div class="prog">Question ${c+1} of ${Q.length}</div><h1>${esc(q.text)}</h1><p>Correct answer:</p>
+  <div class="opt on"><b>${'ABCDEFGH'[i]}</b><span>${esc(q.options[i])}</span></div>${res}<p>Waiting for the next question.</p>`);
+}
+
 function render(){
   const c = state ? state.current : -1;
-  const key = [pid, c, doneList().includes(c)].join('|');
+  const key = [pid, c, doneList().includes(c), !!(state && state.revealed)].join('|');
   if(key === lastKey) return;      // don't wipe a selection in progress
   lastKey = key; picked = new Set();
   if(!pid) return joinView();
   if(c < 0) return msg('You\'re in, ' + (ls.get('fact_name')||'') + '.', 'Waiting for the first question.');
   if(c >= Q.length) return msg('Thank you!', 'That\'s everything. We\'ll follow up with anyone who shared interest in a committee.');
+  if(state.revealed && Q[c].correct !== undefined) return revealView(c);
   if(doneList().includes(c)) return msg('Answer received.', 'Waiting for the next question.');
   questionView(c);
 }
