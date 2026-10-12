@@ -4,24 +4,23 @@
 <title>Join the session</title>
 <style>
 :root{--red:#a6192e;--deep:#7d1223;--w:#fff;--soft:rgba(255,255,255,.85);--edge:rgba(255,255,255,.55);--warn:#ffe08a}
-@media(prefers-color-scheme:dark){:root{--bg:#151c22;--ink:#eef2f3;--mut:#9fb0ba;--acc:#4fc3c3;--line:#33424d;--card:#1d2830}}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.4 "Segoe UI",system-ui,sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+body{margin:0;background:var(--red);color:var(--w);font:17px/1.4 "Segoe UI",system-ui,sans-serif;min-height:100vh;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
 main{max-width:520px;margin:0 auto;padding:24px 18px}
 h1{font-size:1.5rem;line-height:1.2;margin:0 0 6px}
-p{color:var(--mut);margin:0 0 18px}
+p{color:var(--soft);margin:0 0 18px}
 label{display:block;font-weight:600;margin:14px 0 6px}
-input{width:100%;font:inherit;padding:13px;border:2px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
-input:focus,button:focus-visible{outline:3px solid var(--acc);outline-offset:1px}
-.opt,.go{display:flex;gap:12px;width:100%;text-align:left;font:inherit;color:var(--ink);padding:14px;margin:0 0 10px;border:2px solid var(--line);border-radius:10px;background:var(--card);cursor:pointer}
-.opt b{flex:none;width:28px;height:28px;border-radius:50%;background:var(--line);display:grid;place-items:center;font-size:.9rem}
-.opt.on{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 14%,var(--card))}
-.opt.on b{background:var(--acc);color:#fff}
-.go{justify-content:center;background:var(--acc);border-color:var(--acc);color:#fff;font-weight:700;margin-top:16px}
-.go:disabled{opacity:.4;cursor:default}
-.skip{background:none;border:0;color:var(--mut);text-decoration:underline;font:inherit;padding:10px 0;cursor:pointer}
-.err{color:#b3261e;font-weight:600;min-height:1.4em}
-.prog{font-size:.9rem;color:var(--mut);margin-bottom:8px}
+input{width:100%;font:inherit;padding:13px;border:2px solid var(--w);border-radius:10px;background:var(--w);color:#2a1218}
+input:focus,button:focus-visible{outline:3px solid var(--warn);outline-offset:2px}
+.opt,.go{display:flex;gap:12px;width:100%;text-align:left;font:inherit;color:var(--w);padding:14px;margin:0 0 10px;border:2px solid var(--edge);border-radius:10px;background:transparent;cursor:pointer}
+.opt b{flex:none;width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.22);display:grid;place-items:center;font-size:.9rem}
+.opt.on{border-color:var(--w);background:var(--w);color:var(--red)}
+.opt.on b{background:var(--red);color:var(--w)}
+.go{justify-content:center;background:var(--w);border-color:var(--w);color:var(--red);font-weight:700;margin-top:16px}
+.go:disabled{opacity:.45;cursor:default}
+.skip{background:none;border:0;color:var(--w);text-decoration:underline;font:inherit;padding:10px 0;cursor:pointer}
+.err{color:var(--warn);font-weight:600;min-height:1.4em}
+.prog{font-size:.9rem;color:var(--soft);margin-bottom:8px}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
