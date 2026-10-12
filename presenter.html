@@ -90,7 +90,7 @@ function draw(){
     stage.innerHTML = `<h1>Thank you!</h1><p class="mut">${joined} people joined.</p>`;
   } else {
     const q = Q[c], t = tally(c), max = Math.max(1, ...t.counts);
-    stage.innerHTML = `<p class="mut">Question ${c+1} of ${Q.length}${q.multi?' · select all that apply':''}</p><h1>${esc(q.text)}</h1>` +
+    stage.innerHTML = `<p class="mut">Question ${c+1} of ${Q.length}</p><h1>${esc(q.text)}</h1>` +
       q.options.map((o,i) => `<div class="row"><div class="l">${'ABCDEFGH'[i]}</div>
         <div class="bar"><i style="width:${t.counts[i]/max*100}%"></i><span>${esc(o)}</span></div>
         <div class="num">${t.counts[i]}<small>${t.n ? Math.round(t.counts[i]/t.n*100) : 0}%</small></div></div>`).join('') +
