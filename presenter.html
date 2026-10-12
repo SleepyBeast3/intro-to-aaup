@@ -15,6 +15,10 @@ h1{font-size:clamp(1.8rem,4.2vw,3.4rem);line-height:1.15;margin:0 0 .4em}
 .bar{position:relative;background:rgba(255,255,255,.14);border:2px solid var(--line);border-radius:10px;min-height:3.2em;overflow:hidden;display:flex;align-items:center}
 .bar i{position:absolute;inset:0 auto 0 0;background:var(--w);opacity:.4;width:0;transition:width .4s}
 .bar span{position:relative;padding:.5em .9em;font-size:clamp(1rem,2vw,1.5rem)}
+.row.ok .bar{background:var(--w);border-color:var(--w)}
+.row.ok .bar span{color:var(--red);font-weight:700}
+.row.ok .bar i{opacity:0}
+.row.dim{opacity:.45}
 .num{text-align:right;font-weight:700;font-size:1.3em}
 .num small{display:block;font-weight:400;color:var(--soft);font-size:.65em}
 #bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:10px 16px;background:var(--deep);font-size:16px}
@@ -46,7 +50,7 @@ let state = {current:-1}, people = {}, answers = {}, started = false;
 
 function loginView(msg){
   bar.hidden = true;
-  stage.innerHTML = `<h1>Presenter sign-in</h1><p class="mut">${esc(msg || 'Use the presenter account you created')} <i>${esc('FOR SAFETY!')}</i></p>`
+  stage.innerHTML = `<h1>Presenter sign-in</h1><p class="mut">${esc(msg||'Use the presenter account you created in Firebase.')}</p>
   <input id="e" type="email" placeholder="Email" autocomplete="username"><br>
   <input id="p" type="password" placeholder="Password" autocomplete="current-password"><br>
   <button class="p" id="in">Sign in</button>`;
@@ -68,7 +72,7 @@ function start(){
   db.ref('answers').on('value', s => { answers = s.val() || {}; draw(); });
 }
 
-const setCur = n => db.ref('state/current').set(Math.max(-1, Math.min(Q.length, n)));
+const setCur = n => db.ref('state').update({current: Math.max(-1, Math.min(Q.length, n)), revealed: false});
 
 function tally(c){
   const q = Q[c], counts = q.options.map(()=>0), a = answers[c] || {};
@@ -89,19 +93,21 @@ function draw(){
   } else if(c >= Q.length){
     stage.innerHTML = `<h1>Thank you!</h1><p class="mut">${joined} people joined.</p>`;
   } else {
-    const q = Q[c], t = tally(c), max = Math.max(1, ...t.counts);
-    stage.innerHTML = `<p class="mut">Question ${c+1} of ${Q.length}</p><h1>${esc(q.text)}</h1>` +
-      q.options.map((o,i) => `<div class="row"><div class="l">${'ABCDEFGH'[i]}</div>
+    const q = Q[c], t = tally(c), max = Math.max(1, ...t.counts), rev = !!state.revealed && q.correct !== undefined;
+    stage.innerHTML = `<p class="mut">Question ${c+1} of ${Q.length}${q.multi?' · select all that apply':''}</p><h1>${esc(q.text)}</h1>` +
+      q.options.map((o,i) => `<div class="row${rev ? (i===q.correct ? ' ok' : ' dim') : ''}"><div class="l">${rev && i===q.correct ? '✓' : 'ABCDEFGH'[i]}</div>
         <div class="bar"><i style="width:${t.counts[i]/max*100}%"></i><span>${esc(o)}</span></div>
         <div class="num">${t.counts[i]}<small>${t.n ? Math.round(t.counts[i]/t.n*100) : 0}%</small></div></div>`).join('') +
-      `<p class="mut">${t.n} of ${joined} responded</p>`;
+      `<p class="mut">${t.n} of ${joined} responded${rev ? ' · ' + (t.n ? Math.round(t.counts[q.correct]/t.n*100) : 0) + '% answered correctly' : ''}</p>`;
   }
   bar.innerHTML = `<button id="prev" ${c<0?'disabled':''}>Back</button>
     <button class="p" id="next" ${c>=Q.length?'disabled':''}>${c<0?'Start':c===Q.length-1?'Finish':'Next question'}</button>
+    ${c>=0 && c<Q.length && Q[c].correct!==undefined ? `<button id="rev">${state.revealed?'Hide answer':'Reveal answer'}</button>` : ''}
     <span class="sp"></span><span class="mut">${joined} joined</span>
     <button id="csv">Download CSV</button><button id="reset">Reset all data</button><button id="out">Sign out</button>`;
   document.getElementById('prev').onclick = () => setCur(c-1);
   document.getElementById('next').onclick = () => setCur(c+1);
+  const rb = document.getElementById('rev'); if(rb) rb.onclick = () => db.ref('state/revealed').set(!state.revealed);
   document.getElementById('csv').onclick = exportCsv;
   document.getElementById('out').onclick = () => { started = false; db.ref().off(); auth.signOut(); };
   document.getElementById('reset').onclick = () => {
