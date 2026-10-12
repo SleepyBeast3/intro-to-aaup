@@ -6,14 +6,16 @@ window.FIREBASE_CONFIG = {
   projectId: "intro-to-aaup",
   appId: "1:168097049754:web:b0b84fe210d5e7a9ae4323"
 };
-window.EVENT_TITLE = "Faculty Union Information Session";
+window.EVENT_TITLE = "Introduction to AAUP";
 
 // Add `multi: true` to let people pick more than one answer.
 // Options are lettered A, B, C... automatically.
+// Optional: add `correct: N` (0 = first option, 1 = second, ...) to a single-choice question
+// and the presenter gets a "Reveal answer" button for it. Leave it off for opinion questions.
 // Keep the committee question LAST: the CSV export reads it.
 window.QUESTIONS = [
-  { text: "Question 1?", options: ["Cat", "Dog", "Platypus", "Mushroom"] },
-  { text: "Question 2?", options: ["Red", "Blue", "Green", "Purple"] },
+  { text: "Question 1?", correct: 2, options: ["Cat", "Dog", "Platypus", "Mushroom"] },
+  { text: "Question 2?", correct: 1, options: ["Red", "Blue", "Green", "Purple"] },
   { text: "Question 3?", options: ["Apple", "Banana", "Mango", "Walnut"] },
   { text: "Question 4?", options: ["Mercury", "Venus", "Jupiter", "Neptune"] },
   { text: "Question 5?", options: ["Piano", "Violin", "Trumpet", "Kazoo"] },
@@ -25,6 +27,7 @@ window.QUESTIONS = [
     "Examining Program Chair Work",
     "Reviewing Dental Benefits",
     "Improving College-wide Training on College Tools, Processes, and Systems",
-    "Assessing AI Impacts on Faculty Working Conditions"
+    "Assessing AI Impacts on Faculty Working Conditions",
+    "None of the above"
   ]}
 ];
