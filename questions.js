@@ -6,7 +6,7 @@ window.FIREBASE_CONFIG = {
   projectId: "intro-to-aaup",
   appId: "1:168097049754:web:b0b84fe210d5e7a9ae4323"
 };
-window.EVENT_TITLE = "Introduction to AAUP";
+window.EVENT_TITLE = "AAUP Quiz Bowl!";
 
 // Add `multi: true` to let people pick more than one answer.
 // Options are lettered A, B, C... automatically.
