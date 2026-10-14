@@ -32,6 +32,9 @@ input{padding:10px;border-radius:8px;border:1px solid var(--w);background:var(--
 .lobby{display:flex;gap:5vw;align-items:center;flex-wrap:wrap}
 #qr{background:#fff;padding:14px;border-radius:12px;line-height:0}
 .url{word-break:break-all;font-weight:700}
+.brow{display:grid;grid-template-columns:2em 1fr auto;gap:.9em;padding:.4em .2em;border-bottom:1px solid var(--line);font-size:clamp(1.1rem,2.2vw,1.8rem)}
+.brow:first-child{font-weight:700}
+h2{font-size:1.4rem;margin:1.2em 0 .3em}
 .count{font-size:clamp(2.5rem,6vw,5rem);font-weight:700;line-height:1}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -39,92 +42,135 @@ input{padding:10px;border-radius:8px;border:1px solid var(--w);background:var(--
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="questions.js"></script>
+<script src="settings.js"></script>
 </head><body>
 <div id="stage"></div><div id="bar" hidden></div>
 <script>
 firebase.initializeApp(FIREBASE_CONFIG);
-const db = firebase.database(), auth = firebase.auth(), Q = QUESTIONS;
+const db = firebase.database(), auth = firebase.auth(), Q = QUESTIONS, S = SETTINGS, TS = firebase.database.ServerValue.TIMESTAMP;
 const stage = document.getElementById('stage'), bar = document.getElementById('bar');
 const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let state = {current:-1}, people = {}, answers = {}, started = false;
+const hasScored = Q.some(q => q.correct !== undefined);
+let state = {current:-1}, people = {}, answers = {}, opened = {}, started = false, board = false;
 
 function loginView(msg){
   bar.hidden = true;
-  stage.innerHTML = `<h1>Presenter sign-in</h1><p class="mut">${esc(msg || 'Use the presenter account you created')} <i>${esc('FOR SAFETY!')}</i></p>
+  stage.innerHTML = `<h1>Presenter sign-in</h1><p class="mut">${esc(msg||'Use the presenter account you created')} <i>${esc('FOR SAFETY!')}</i></p>
   <input id="e" type="email" placeholder="Email" autocomplete="username"><br>
   <input id="p" type="password" placeholder="Password" autocomplete="current-password"><br>
-  <button class="p" id="in">Sign in</button>`;
+  <button class="p" id="in">Launch that sucker</button>`;
   const go = () => auth.signInWithEmailAndPassword(document.getElementById('e').value, document.getElementById('p').value)
     .catch(() => loginView('Sign-in failed. Check the email and password.'));
   document.getElementById('in').onclick = go;
   document.getElementById('p').onkeydown = e => { if(e.key==='Enter') go(); };
 }
-
 auth.onAuthStateChanged(u => { if(u) start(); else loginView(); });
 
 function start(){
   if(started) return; started = true;
   db.ref('state').on('value', s => {
-    if(!s.val()){ db.ref('state').set({current:-1, eventId: Math.random().toString(36).slice(2)}); return; }
+    if(!s.val()){ db.ref('state').set({current:-1, open:false, revealed:false, eventId: Math.random().toString(36).slice(2)}); return; }
     state = s.val(); draw();
   });
   db.ref('people').on('value', s => { people = s.val() || {}; draw(); });
   db.ref('answers').on('value', s => { answers = s.val() || {}; draw(); });
+  db.ref('opened').on('value', s => { opened = s.val() || {}; draw(); });
 }
 
-const setCur = n => db.ref('state').update({current: Math.max(-1, Math.min(Q.length, n)), revealed: false});
+function setCur(n){
+  const c = Math.max(-1, Math.min(Q.length, n)); board = false;
+  const auto = c >= 0 && c < Q.length && !S.holdOptions;
+  const u = {'state/current': c, 'state/revealed': false, 'state/open': auto};
+  if(auto && opened[c] === undefined) u['opened/'+c] = TS;
+  db.ref().update(u);
+}
+function openOptions(){
+  const c = state.current, u = {'state/open': true, 'state/revealed': false};
+  if(opened[c] === undefined) u['opened/'+c] = TS;     // clock starts once, even if you go back and forth
+  db.ref().update(u);
+}
+function toggleReveal(){
+  db.ref().update(state.revealed ? {'state/revealed': false} : {'state/revealed': true, 'state/open': false});
+}
 
 function tally(c){
   const q = Q[c], counts = q.options.map(()=>0), a = answers[c] || {};
-  Object.values(a).forEach(v => { (typeof v === 'number' ? [v] : Object.values(v)).forEach(i => { if(counts[i]!==undefined) counts[i]++; }); });
+  Object.values(a).forEach(v => { const x = v && v.a; (typeof x === 'number' ? [x] : Object.values(x||{})).forEach(i => { if(counts[i]!==undefined) counts[i]++; }); });
   return {counts, n: Object.keys(a).length};
+}
+
+function scores(){
+  const out = Object.entries(people).map(([id,p]) => ({id, name:p.name, pts:0, ok:0}));
+  const by = Object.fromEntries(out.map(o => [o.id, o]));
+  Q.forEach((q,c) => {
+    if(q.correct === undefined) return;
+    Object.entries(answers[c] || {}).forEach(([id,v]) => {
+      const o = by[id]; if(!o || !v) return;
+      const pts = scoreFor(v.a, q.correct, v.t - opened[c]);
+      if(pts){ o.pts += pts; o.ok++; }
+    });
+  });
+  return out.sort((x,y) => y.pts - x.pts || x.name.localeCompare(y.name));
+}
+function boardHtml(n){
+  const sc = scores().filter(p => p.pts > 0).slice(0, n);
+  return sc.length ? sc.map((p,i) => `<div class="brow"><span>${i+1}</span><span>${esc(p.name)}</span><span>${p.pts} pts · ${p.ok} correct</span></div>`).join('')
+                   : '<p class="mut">No scores yet.</p>';
 }
 
 function draw(){
   if(!started) return;
-  const c = state.current, joined = Object.keys(people).length;
+  const c = state.current, joined = Object.keys(people).length, inQ = c >= 0 && c < Q.length;
+  const q = inQ ? Q[c] : null, rev = inQ && !!state.revealed && q.correct !== undefined;
+  const closed = inQ && !state.open && !state.revealed;
   bar.hidden = false;
-  if(c < 0){
+  if(board){
+    stage.innerHTML = `<h1>Leaderboard</h1>` + boardHtml(10);
+  } else if(c < 0){
     const url = new URL('index.html', location.href).href;
     stage.innerHTML = `<h1>${esc(EVENT_TITLE)}</h1><div class="lobby"><div id="qr"></div>
       <div><p>Scan to join, or go to</p><p class="url">${esc(url)}</p>
       <p class="mut">Joined so far</p><div class="count">${joined}</div></div></div>`;
     new QRCode(document.getElementById('qr'), {text:url, width:260, height:260});
-  } else if(c >= Q.length){
-    stage.innerHTML = `<h1>Thank you!</h1><p class="mut">${joined} people joined.</p>`;
+  } else if(!inQ){
+    stage.innerHTML = `<h1>Thank you!</h1><p class="mut">${joined} people joined.</p>` + (hasScored ? `<h2>Top scores</h2>` + boardHtml(5) : '');
   } else {
-    const q = Q[c], t = tally(c), max = Math.max(1, ...t.counts), rev = !!state.revealed && q.correct !== undefined;
+    const t = tally(c), max = Math.max(1, ...t.counts);
     stage.innerHTML = `<p class="mut">Question ${c+1} of ${Q.length}</p><h1>${esc(q.text)}</h1>` +
+      (closed ? `<p class="mut">Options are hidden. Click “Show options” when everyone is ready.</p>` :
       q.options.map((o,i) => `<div class="row${rev ? (i===q.correct ? ' ok' : ' dim') : ''}"><div class="l">${rev && i===q.correct ? '✓' : 'ABCDEFGH'[i]}</div>
         <div class="bar"><i style="width:${t.counts[i]/max*100}%"></i><span>${esc(o)}</span></div>
         <div class="num">${t.counts[i]}<small>${t.n ? Math.round(t.counts[i]/t.n*100) : 0}%</small></div></div>`).join('') +
-      `<p class="mut">${t.n} of ${joined} responded${rev ? ' · ' + (t.n ? Math.round(t.counts[q.correct]/t.n*100) : 0) + '% answered correctly' : ''}</p>`;
+      `<p class="mut">${t.n} of ${joined} responded${rev ? ' · ' + (t.n ? Math.round(t.counts[q.correct]/t.n*100) : 0) + '% answered correctly' : ''}</p>`);
   }
   bar.innerHTML = `<button id="prev" ${c<0?'disabled':''}>Back</button>
-    <button class="p" id="next" ${c>=Q.length?'disabled':''}>${c<0?'Start':c===Q.length-1?'Finish':'Next question'}</button>
-    ${c>=0 && c<Q.length && Q[c].correct!==undefined ? `<button id="rev">${state.revealed?'Hide answer':'Reveal answer'}</button>` : ''}
+    ${closed ? '<button class="p" id="open">Show options</button>' : ''}
+    <button class="${closed?'':'p'}" id="next" ${c>=Q.length?'disabled':''}>${c<0?'Start':c===Q.length-1?'Finish':'Next question'}</button>
+    ${inQ && q.correct !== undefined ? `<button id="rev">${state.revealed?'Hide answer':'Reveal answer'}</button>` : ''}
+    ${hasScored ? `<button id="lb">${board?'Back to question':'Leaderboard'}</button>` : ''}
     <span class="sp"></span><span class="mut">${joined} joined</span>
     <button id="csv">Download CSV</button><button id="reset">Reset all data</button><button id="out">Sign out</button>`;
-  document.getElementById('prev').onclick = () => setCur(c-1);
-  document.getElementById('next').onclick = () => setCur(c+1);
-  const rb = document.getElementById('rev'); if(rb) rb.onclick = () => db.ref('state/revealed').set(!state.revealed);
-  document.getElementById('csv').onclick = exportCsv;
-  document.getElementById('out').onclick = () => { started = false; db.ref().off(); auth.signOut(); };
-  document.getElementById('reset').onclick = () => {
-    if(!confirm('Delete all joined people and answers, and start over?')) return;
-    db.ref().update({people:null, answers:null, state:{current:-1, eventId: Math.random().toString(36).slice(2)}});
-  };
+  const on = (id, fn) => { const el = document.getElementById(id); if(el) el.onclick = fn; };
+  on('prev', () => setCur(c-1)); on('next', () => setCur(c+1)); on('open', openOptions); on('rev', toggleReveal);
+  on('lb', () => { board = !board; draw(); }); on('csv', exportCsv);
+  on('out', () => { started = false; db.ref().off(); auth.signOut(); });
+  on('reset', () => {
+    if(!confirm('Delete all joined people, answers and scores, and start over?')) return;
+    board = false;
+    db.ref().update({people:null, answers:null, opened:null, state:{current:-1, open:false, revealed:false, eventId: Math.random().toString(36).slice(2)}});
+  });
 }
 
 function exportCsv(){
   const ci = Q.length - 1, q = Q[ci], a = answers[ci] || {};
+  const sc = Object.fromEntries(scores().map(p => [p.id, p]));
   const cell = v => '"' + String(v).replace(/"/g,'""') + '"';
-  const rows = [['First name','College email','Committee interests']];
+  const rows = [['First name','College email','Score','Correct answers','Committee interests']];
   Object.entries(people).sort((x,y)=>x[1].joined-y[1].joined).forEach(([id,p]) => {
-    const v = a[id], idx = v===undefined ? [] : (typeof v==='number' ? [v] : Object.values(v));
-    rows.push([p.name, p.email, idx.map(i=>q.options[i]).join('; ')]);
+    const x = a[id] && a[id].a, idx = x===undefined ? [] : (typeof x==='number' ? [x] : Object.values(x));
+    rows.push([p.name, p.email, sc[id] ? sc[id].pts : 0, sc[id] ? sc[id].ok : 0, idx.map(i=>q.options[i]).join('; ')]);
   });
   const blob = new Blob(['\ufeff' + rows.map(r=>r.map(cell).join(',')).join('\r\n')], {type:'text/csv'});
-  const l = document.createElement('a'); l.href = URL.createObjectURL(blob); l.download = 'committee-interest.csv'; l.click();
+  const l = document.createElement('a'); l.href = URL.createObjectURL(blob); l.download = 'session-results.csv'; l.click();
 }
 </script></body></html>
