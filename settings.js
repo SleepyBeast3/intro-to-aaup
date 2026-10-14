@@ -1,4 +1,4 @@
-// ===== Scoring + flow settings (you rarely need to touch this) =====
+// ===== Scoring + flow settings (you rarely need to touch this; touching now) =====
 window.SETTINGS = {
   holdOptions: true,    // true: question appears first, presenter clicks "Show options" to start the clock
   basePoints: 1000,     // points for a correct answer
