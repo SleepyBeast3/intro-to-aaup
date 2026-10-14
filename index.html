@@ -25,6 +25,7 @@ input:focus,button:focus-visible{outline:3px solid var(--warn);outline-offset:2p
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="questions.js"></script>
+<script src="settings.js"></script>
 </head><body><main id="app"></main>
 <script>
 firebase.initializeApp(FIREBASE_CONFIG);
@@ -80,24 +81,36 @@ function questionView(c){
   send.onclick = async () => {
     send.disabled = true;
     try{
-      await db.ref(`answers/${c}/${pid}`).set(q.multi ? [...picked].sort((a,b)=>a-b) : [...picked][0]);
+      await db.ref(`answers/${c}/${pid}`).set({a: q.multi ? [...picked].sort((a,b)=>a-b) : [...picked][0], t: firebase.database.ServerValue.TIMESTAMP});
       finish();
     }catch(e){ document.getElementById('err').textContent = 'Not sent. Check your connection and tap Submit again.'; send.disabled = false; }
   };
   if(q.multi) document.getElementById('skip').onclick = finish;
 }
 
-function revealView(c){
+async function revealView(c){
   const q = Q[c], i = q.correct;
   let pick = null; try { pick = JSON.parse(ls.get('fact_pick_'+c)); } catch(e){}
-  const res = pick && pick.length ? `<p><strong>${pick[0]===i ? 'You got it!' : 'Not this time.'}</strong></p>` : '';
-  view(`<div class="prog">Question ${c+1} of ${Q.length}</div><h1>${esc(q.text)}</h1><p>Correct answer:</p>
-  <div class="opt on"><b>${'ABCDEFGH'[i]}</b><span>${esc(q.options[i])}</span></div>${res}<p>Waiting for the next question.</p>`);
+  const paint = extra => view(`<div class="prog">Question ${c+1} of ${Q.length}</div><h1>${esc(q.text)}</h1><p>Correct answer:</p>
+    <div class="opt on"><b>${'ABCDEFGH'[i]}</b><span>${esc(q.options[i])}</span></div>${extra}<p>Waiting for the next question.</p>`);
+  const answered = pick && pick.length;
+  paint(answered ? `<p><strong>${pick[0]===i ? 'You got it!' : 'Not this time.'}</strong></p>` : '');
+  if(!answered) return;
+  try{
+    const [a, o] = await Promise.all([db.ref(`answers/${c}/${pid}`).once('value'), db.ref('opened/'+c).once('value')]);
+    const v = a.val(); if(!v) return;
+    const pts = scoreFor(v.a, i, v.t - o.val());
+    let m = {}; try { m = JSON.parse(ls.get('fact_pts')||'{}'); } catch(e){}
+    m[c] = pts; ls.set('fact_pts', JSON.stringify(m));
+    const total = Object.values(m).reduce((x,y)=>x+y, 0);
+    if(state && state.current === c && state.revealed)
+      paint(`<p><strong>${v.a===i ? 'You got it!' : 'Not this time.'}</strong>${pts ? ' +' + pts + ' points' : ''}</p><p>Your total: ${total} points</p>`);
+  }catch(e){}
 }
 
 function render(){
   const c = state ? state.current : -1;
-  const key = [pid, c, doneList().includes(c), !!(state && state.revealed)].join('|');
+  const key = [pid, c, doneList().includes(c), !!(state && state.revealed), !!(state && state.open)].join('|');
   if(key === lastKey) return;      // don't wipe a selection in progress
   lastKey = key; picked = new Set();
   if(!pid) return joinView();
@@ -105,13 +118,17 @@ function render(){
   if(c >= Q.length) return msg('Thank you!', 'That\'s everything. We\'ll follow up with anyone who shared interest in a committee.');
   if(state.revealed && Q[c].correct !== undefined) return revealView(c);
   if(doneList().includes(c)) return msg('Answer received.', 'Waiting for the next question.');
+  if(!state.open){
+    const q = Q[c];
+    return view(`<div class="prog">Question ${c+1} of ${Q.length}</div><h1>${esc(q.text)}</h1><p>Get ready. The answer options will appear in a moment.</p>`);
+  }
   questionView(c);
 }
 
 db.ref('state').on('value', s => {
   state = s.val() || {current:-1, eventId:''};
   if((ls.get('fact_event')||'') !== (state.eventId||'')){   // presenter reset the event
-    ls.del('fact_pid'); ls.del('fact_done'); ls.del('fact_name'); pid = null; lastKey = null;
+    ls.del('fact_pid'); ls.del('fact_done'); ls.del('fact_name'); ls.del('fact_pts'); Q.forEach((_,i)=>ls.del('fact_pick_'+i)); pid = null; lastKey = null;
     ls.set('fact_event', state.eventId||'');
   }
   render();
