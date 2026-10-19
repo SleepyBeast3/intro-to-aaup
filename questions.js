@@ -12,7 +12,7 @@ window.EVENT_TITLE = "AAUP Quiz Bowl!";
 // Options are lettered A, B, C... automatically.
 // Optional: add `correct: N` (0 = first option, 1 = second, ...) to a single-choice question
 // and the presenter gets a "Reveal answer" button for it. Leave it off for opinion questions.
-// Keep the committee question LAST: the CSV export reads it.
+// Make sure to keep the committee question LAST: the CSV export reads it.
 window.QUESTIONS = [
   { text: "1.	AAUP became the faculty union at CState in: ", correct: 1, options: ["1969", "1988", "1989", "1990"] },
   { text: "2. Before AAUP was the faculty union, CState faculty had to:", correct: 0, options: [
