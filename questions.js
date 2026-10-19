@@ -137,7 +137,7 @@ window.QUESTIONS = [
     "Vice President Julie McLaughlin", 
     "YOU!!! (but you also elect officers to carry out the day-to-day work of the union)"
    ]},
-  { text: "25. I'm interested serving on or helping with FACT for these topics (select all that apply):", multi: true, options: [
+  { text: "25. I'm interested in serving on or helping with FACT for these topics (select all that apply):", multi: true, options: [
     "Examining Program Chair Work",
     "Reviewing Dental Benefits",
     "Improving College-wide Training on College Tools, Processes, and Systems",
